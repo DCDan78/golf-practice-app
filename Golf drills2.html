@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Golf Practice Randomizer</title>
+    <style>
+        body { font-family: Arial; text-align: center; margin-top: 20px; }
+        input, select { margin: 5px; padding: 5px; }
+        button { padding: 8px 12px; margin: 10px; }
+        #target { font-size: 24px; margin: 15px; }
+        #results { margin-top: 15px; }
+        canvas { border:1px solid #333; margin-top:20px; background:#f0f0f0; }
+    </style>
+</head>
+<body>
+
+<h1>🏌️ Approach Shot Randomizer</h1>
+
+<div>
+    Min Distance:
+    <input type="number" id="minDist" value="80">
+
+    Max Distance:
+    <input type="number" id="maxDist" value="160">
+
+    <button onclick="generateTarget()">Generate Target</button>
+</div>
+
+<div id="target"></div>
+
+<div>
+    Club:
+    <select id="club">
+        <option>5 Hybrid</option>
+	<option>6 Iron</option>
+	<option>7 Iron</option>
+        <option>8 Iron</option>
+        <option>9 Iron</option>
+        <option>Pitching Wedge</option>
+        <option>Approach Wedge</option>
+	<option>Sand Wedge</option>
+    </select>
+
+    Actual Carry:
+    <input type="number" id="actualCarry">
+
+    Lateral (Left negative, Right positive):
+    <input type="number" id="lateral">
+
+    <button onclick="logShot()">Log Shot</button>
+</div>
+
+<div id="results"></div>
+
+<div>
+    Good Zone Radius (yards):
+    <input type="number" id="zoneRadius" value="8">
+</div>
+
+<canvas id="dispersionCanvas" width="500" height="500"></canvas>
+
+<script>
+let currentTarget = 0;
+let shots = [];
+let totalScore = 0;
+
+// Assign colors to clubs
+const clubColors = {
+    "7 Iron": "red",
+    "8 Iron": "blue",
+    "9 Iron": "green",
+    "Pitching Wedge": "orange",
+    "Gap Wedge": "purple"
+};
+
+function generateTarget() {
+    let min = parseInt(document.getElementById("minDist").value);
+    let max = parseInt(document.getElementById("maxDist").value);
+    currentTarget = Math.floor(Math.random() * (max - min + 1)) + min;
+    document.getElementById("target").innerHTML = "🎯 Target: " + currentTarget + " yards";
+}
+
+function logShot() {
+    let actual = parseFloat(document.getElementById("actualCarry").value);
+    let lateral = parseFloat(document.getElementById("lateral").value);
+    let club = document.getElementById("club").value;
+
+    if (isNaN(actual) || isNaN(lateral) || currentTarget === 0) {
+        alert("Generate target and enter carry + lateral first.");
+        return;
+    }
+
+    let carryError = actual - currentTarget;
+    let carryAbs = Math.abs(carryError);
+    let lateralAbs = Math.abs(lateral);
+
+    // Scoring system
+    let points = 0;
+    if (carryAbs <= 3) points = 5;
+    else if (carryAbs <= 5) points = 3;
+    else if (carryAbs <= 10) points = 1;
+    if (lateralAbs <= 5) points += 1;
+    totalScore += points;
+
+    shots.push({carryError, lateral, points, club});
+
+    // Calculate averages
+    let avgCarryError = shots.reduce((a,b)=>a+b.carryError,0)/shots.length;
+    let avgLateral = shots.reduce((a,b)=>a+b.lateral,0)/shots.length;
+
+    document.getElementById("results").innerHTML =
+        `Last Shot: ${carryError.toFixed(1)} yds carry, ${lateral.toFixed(1)} yds lateral, ${points} pts<br>` +
+        `Shots Logged: ${shots.length}<br>` +
+        `Average Carry Error: ${avgCarryError.toFixed(2)}, Average Lateral: ${avgLateral.toFixed(2)}<br>` +
+        `Total Score: ${totalScore}`;
+
+    document.getElementById("actualCarry").value = "";
+    document.getElementById("lateral").value = "";
+
+    drawDispersion();
+}
+
+// Draw shot dispersion
+function drawDispersion() {
+    let canvas = document.getElementById("dispersionCanvas");
+    let ctx = canvas.getContext("2d");
+
+    let zoneYards = parseFloat(document.getElementById("zoneRadius").value);
+
+    if (isNaN(zoneYards) || zoneYards <= 0) {
+        zoneYards = 8;
+    }
+
+    // Clear and draw dark green background
+    ctx.fillStyle = "#0a5f2f";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Make circle fill ~80% of canvas
+    let circleRadiusPixels = canvas.width * 0.4; // 80% diameter
+    let scale = circleRadiusPixels / zoneYards;
+
+    // Draw good zone
+    ctx.fillStyle = "rgba(144, 238, 144, 0.35)";
+    ctx.beginPath();
+    ctx.arc(canvas.width/2, canvas.height/2, circleRadiusPixels, 0, Math.PI*2);
+    ctx.fill();
+
+    // Draw target
+    ctx.fillStyle = "black";
+    ctx.beginPath();
+    ctx.arc(canvas.width/2, canvas.height/2, 6, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = "white";
+    ctx.font = "14px Arial";
+    ctx.fillText("Target", canvas.width/2 + 10, canvas.height/2 - 10);
+
+    // Draw shots
+    shots.forEach(s => {
+        ctx.fillStyle = clubColors[s.club] || "gray";
+        let x = canvas.width/2 + s.lateral * scale;
+        let y = canvas.height/2 - s.carryError * scale;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI*2);
+        ctx.fill();
+    });
+}
+</script>
+
+</body>
+</html>
